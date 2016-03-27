@@ -10,6 +10,7 @@ function CoalescentTree(leafAges::Dict{ASCIIString,Float64}, popSize::Float64)
     for (taxon, height) in leafAges
         leaf = Node()
         leaf.label = taxon
+        leaf.age = height
         push!(unprocessedLeaves, leaf)
     end
 
