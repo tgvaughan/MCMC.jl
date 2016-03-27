@@ -39,6 +39,4 @@ type GaussianDistribution <: TargetDistribution
     x::State{Float64}
 end
 
-function getLogDensity(d::GaussianDistribution)
-    return -(d.x.value - d.mean)^2/(2*d.variance)
-end
+getLogDensity(d::GaussianDistribution) = -(d.x.value - d.mean)^2/(2*d.variance)

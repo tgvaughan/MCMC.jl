@@ -1,5 +1,8 @@
 using TimeTrees
 
+
+# State initialization
+
 export CoalescentTree
 
 # Simulate coalescent tree
@@ -57,4 +60,87 @@ function CoalescentTree(leafAges::Dict{ASCIIString,Float64}, popSize::Float64)
     end
 
     return TimeTree(first(activeNodes))
+end
+
+# Distributions
+
+type CoalescentDistribution <: TargetDistribution
+    popSize::Float64
+    treeState::State{TimeTree}
+end
+
+function getLogDensity(d::CoalescentDistribution)
+    tree = d.treeState.value
+    logP = 0.0
+
+    nodes = getNodes(tree)
+    sort!(nodes, by=n->n.age)
+
+    k = 1
+    t = 0.0
+    for i in 2:length(nodes)
+        node = nodes[i]
+
+        dt = node.age - t
+        lambda = k*(k-1)/d.popSize
+
+        logP += -lambda*dt
+
+        if !isLeaf(node)
+            logP += 1/d.popSize
+        end
+    end
+
+    return logP
+end
+
+
+
+# Operators
+
+type TreeScaler <: Operator
+    scaleFactor::Float64
+    treeState::State{TimeTree}
+end
+
+function propose(op::TreeScaler)
+    fmin = min(op.scaleFactor, 1/op.scaleFactor)
+    f = fmin + (1/fmin - fmin)*rand()
+
+    tree = op.treeState.value
+
+    for node in getInternalNodes(tree)
+        node.age *= f;
+
+        for child in node.children
+            if isLeaf(child) && child.age > node.age
+                return -Inf
+            end
+        end
+    end
+
+    return (length(getInternalNodes(tree))-2)*log(f)
+end
+
+type TreeUniform <: Operator
+    treeState::State{TimeTree}
+end
+
+function propose(op::TreeUniform)
+    tree = op.treeState.value
+
+    node = rand(getInternalNodes(tree))
+    while isRoot(node)
+        node = rand(getInternalNodes(tree))
+    end
+
+    maxAge = node.parent.age
+    minAge = -Inf
+    for child in node.children
+        minAge = max(minAge, child.age)
+    end
+
+    node.age = minAge + (maxAge - minAge)*rand()
+
+    return 0.0
 end
