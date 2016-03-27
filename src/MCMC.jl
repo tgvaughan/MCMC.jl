@@ -18,11 +18,26 @@ function getLogDensity(d::TargetDistribution) end
 abstract Operator
 function propose(op::Operator) end
 
-abstract State
-function store(state::State) end
-function restore(state::State) end
-function getLogValue(state::State) end
-function getLogName(state::State) end
+type State{T}
+    name
+    value::T
+    storedValue::T
+
+    State(name, value) = new(name, value, value)
+end
+
+State{T}(name, value::T) = State{T}(name, value)
+
+function store(state::State)
+    state.storedValue = state.value
+end
+
+function restore(state::State)
+    state.value = state.storedValue
+end
+
+getLogValue(state::State) = state.value
+getLogName(state::State) = state.name
 
 abstract Logger
 function log(logger::Logger, iter::Integer) end
@@ -84,43 +99,9 @@ function reject{S<:State}(stateArray::Array{S,1})
 end
 
 
-
-type RealParameter <: State
-    name
-    value::Real
-    storedValue::Real
-end
-RealParameter(name, value::Real) = RealParameter(name, value, value)
-
-function store(param::RealParameter)
-    param.storedValue = param.value
-end
-
-function restore(param::RealParameter)
-    param.value = param.storedValue
-end
-
-function getLogValue(param::RealParameter)
-    return param.value
-end
-
-function getLogName(param::RealParameter)
-    return param.name
-end
-
-
-type IntegerParameter <: State
-    name
-    value::Integer
-    storedValue::Integer
-end
-IntegerParameter(name, value::Integer)  = IntegerParameter(name, value, value)
-
-
-
 type ScaleOperator <: Operator
-    scaleFactor::Real
-    param::RealParameter
+    scaleFactor::Float64
+    param::State{Float64}
 end
 
 function propose(op::ScaleOperator)
@@ -134,8 +115,8 @@ function propose(op::ScaleOperator)
 end
 
 type UniformOperator <: Operator
-    windowSize::Real
-    param::RealParameter
+    windowSize::Float64
+    param::State{Float64}
 end
 
 function propose(op::UniformOperator)
@@ -147,9 +128,9 @@ end
 
 
 type GaussianDistribution <: TargetDistribution
-    mean::Real
-    variance::Real
-    x::RealParameter
+    mean::Float64
+    variance::Float64
+    x::State{Float64}
 end
 
 function getLogDensity(d::GaussianDistribution)
@@ -164,7 +145,7 @@ type FlatTextLogger <: Logger
     samplePeriod::Integer
 end
 
-function FlatTextLogger{T<:State}(fileName::ASCIIString, states::Array{T,1}, samplePeriod::Integer)
+function FlatTextLogger{T}(fileName::ASCIIString, states::Array{State{T},1}, samplePeriod::Integer)
     outStream = open(fileName, "w")
 
     print(outStream, "Sample")
@@ -198,7 +179,7 @@ end
 
 
 function main()
-    x = RealParameter("x", 1.0)
+    x = State{Float64}("x", 1.0)
     #op = ScaleOperator(1.2, x)
     op = UniformOperator(0.5, x)
     d = GaussianDistribution(10, 0.1, x)
