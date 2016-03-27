@@ -15,6 +15,9 @@ function FlatTextLogger{S<:State}(fileName::ASCIIString, states::Array{S,1}, sam
     FlatTextLogger(outStream, states, samplePeriod)
 end
 
+getFlatTextLogName(state) = getLogName(state)
+getFlatTextLogValue(state) = getLogValue(state)
+
 function init(logger::FlatTextLogger)
     print(logger.outStream, "Sample")
 
@@ -55,6 +58,9 @@ type ScreenLogger{S<:State} <: Logger
 end
 
 ScreenLogger{S<:State}(states::Array{S,1}, samplePeriod) = ScreenLogger{S}(states, samplePeriod)
+
+getScreenLogName(state) = getLogName(state)
+getScreenLogValue(state) = getLogValue(state)
 
 function init(logger::ScreenLogger)
     print("Sample")

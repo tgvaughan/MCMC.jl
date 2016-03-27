@@ -1,9 +1,8 @@
 using TimeTrees
 
+export CoalescentTree, CoalescentDistribution, TreeScaler, TreeUniform
 
 # State initialization
-
-export CoalescentTree
 
 # Simulate coalescent tree
 function CoalescentTree(leafAges::Dict{ASCIIString,Float64}, popSize::Float64)
@@ -82,12 +81,16 @@ function getLogDensity(d::CoalescentDistribution)
         node = nodes[i]
 
         dt = node.age - t
-        lambda = k*(k-1)/d.popSize
+        if dt>0.0
+            logP += -dt*0.5*k*(k-1)/d.popSize
+        end
+        t = node.age
 
-        logP += -lambda*dt
-
-        if !isLeaf(node)
-            logP += 1/d.popSize
+        if isLeaf(node)
+            k += 1
+        else
+            logP += log(1/d.popSize)
+            k -= 1
         end
     end
 
@@ -144,3 +147,12 @@ function propose(op::TreeUniform)
 
     return 0.0
 end
+
+
+# Loggers
+
+getScreenLogName{T<:TimeTree}(state::State{T}) = string(state.name, "_height")
+getScreenLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
+
+getFlatTextLogName{T<:TimeTree}(state::State{T}) = string(state.name, "_height")
+getFlatTextLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
