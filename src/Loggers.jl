@@ -1,5 +1,7 @@
 # Basic loggers
 
+export FlatTextLogger, ScreenLogger
+
 # Flat text file logger
 
 type FlatTextLogger{S<:State} <: Logger
@@ -82,5 +84,3 @@ function log(logger::ScreenLogger, iter::Integer)
 
     print("\n")
 end
-
-

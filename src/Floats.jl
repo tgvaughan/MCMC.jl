@@ -1,5 +1,7 @@
 # Distributions and operators relevant to real numbers
 
+export ScaleOperator, UniformOperator, GaussianDistribution
+
 # Operators
 
 type ScaleOperator <: Operator
@@ -40,6 +42,3 @@ end
 function getLogDensity(d::GaussianDistribution)
     return -(d.x.value - d.mean)^2/(2*d.variance)
 end
-
-
-

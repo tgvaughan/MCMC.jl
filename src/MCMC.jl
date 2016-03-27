@@ -5,12 +5,7 @@ module MCMC
 
 import Base.show, Base.log, Base.close
 
-#export TargetDistribution, getLogDensity,
-#    Operator, propose,
-#    State, store, restore, getLogValue, getLogName,
-#    Logger, log,
-#    run
-
+export State, run
 
 abstract TargetDistribution
 function getLogDensity(d::TargetDistribution) end
@@ -45,10 +40,17 @@ abstract Logger
 function init(logger::Logger) end
 function log(logger::Logger, iter::Integer) end
 function close(logger::Logger) end
+summary(logger::Logger) = print("This logger does not provide a summary.")
+trace(logger::Logger) = print("This logger does not provide a trace.")
 
 include("Loggers.jl")
 
 
+include("Trees.jl")
+
+"""
+Run MCMC chain.
+"""
 function run{S<:State,O<:Operator,L<:Logger}(d::TargetDistribution,
     initialStateArray::Array{S,1}, operators::Array{O,1}, loggers::Array{L,1},
     nIters::Integer)
@@ -108,6 +110,8 @@ function reject{S<:State}(stateArray::Array{S,1})
     end
 end
 
+
+# Testing
 function main()
     x = State{Float64}("x", 1.0)
     #op = ScaleOperator(1.2, x)
