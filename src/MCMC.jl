@@ -18,11 +18,7 @@ function getLogDensity(d::TargetDistribution) end
 abstract Operator
 function propose(op::Operator) end
 
-type State{T}
-    name
-    value::T
-    storedValue::T
-end
+abstract State
 function store(state::State) end
 function restore(state::State) end
 function getLogValue(state::State) end
