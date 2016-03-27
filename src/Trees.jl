@@ -1,5 +1,7 @@
 using TimeTrees
 
+export CoalescentTree
+
 # Simulate coalescent tree
 function CoalescentTree(leafAges::Dict{ASCIIString,Float64}, popSize::Float64)
 
