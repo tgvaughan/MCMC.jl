@@ -40,6 +40,7 @@ getLogValue(state::State) = state.value
 getLogName(state::State) = state.name
 
 abstract Logger
+function init(logger::Logger) end
 function log(logger::Logger, iter::Integer) end
 function close(logger::Logger) end
 
@@ -47,6 +48,11 @@ function close(logger::Logger) end
 function run{S<:State,O<:Operator,L<:Logger}(d::TargetDistribution,
     initialStateArray::Array{S,1}, operators::Array{O,1}, loggers::Array{L,1},
     nIters::Integer)
+
+    # Initialize loggers
+    for logger in loggers
+        init(logger)
+    end
 
     oldLogDensity = getLogDensity(d)
     stateArray = initialStateArray
@@ -99,6 +105,8 @@ function reject{S<:State}(stateArray::Array{S,1})
 end
 
 
+# Operators
+
 type ScaleOperator <: Operator
     scaleFactor::Float64
     param::State{Float64}
@@ -126,6 +134,7 @@ function propose(op::UniformOperator)
 end
 
 
+# Basic parametric distributions
 
 type GaussianDistribution <: TargetDistribution
     mean::Float64
@@ -138,25 +147,27 @@ function getLogDensity(d::GaussianDistribution)
 end
 
 
+# Flat text file logger
 
-type FlatTextLogger <: Logger
+type FlatTextLogger{S<:State} <: Logger
     outStream::IOStream
-    states::Array{State,1}
+    states::Array{S,1}
     samplePeriod::Integer
 end
 
-function FlatTextLogger{T}(fileName::ASCIIString, states::Array{State{T},1}, samplePeriod::Integer)
+function FlatTextLogger{S<:State}(fileName::ASCIIString, states::Array{S,1}, samplePeriod::Integer)
     outStream = open(fileName, "w")
+    FlatTextLogger(outStream, states, samplePeriod)
+end
 
-    print(outStream, "Sample")
+function init(logger::FlatTextLogger)
+    print(logger.outStream, "Sample")
 
-    for state in states
-        print(outStream, string("\t", getLogName(state)))
+    for state in logger.states
+        print(logger.outStream, string("\t", getLogName(state)))
     end
 
-    print(outStream, "\n")
-
-    FlatTextLogger(outStream, states, samplePeriod)
+    print(logger.outStream, "\n")
 end
 
 function log(logger::FlatTextLogger, iter::Integer)
@@ -178,14 +189,56 @@ function close(logger::FlatTextLogger)
 end
 
 
+# Scrreen logger
+
+type ScreenLogger{S<:State} <: Logger
+    states::Array{S,1}
+    samplePeriod::Integer
+    startTime::Float64
+
+    ScreenLogger(states, samplePeriod) = new(states, samplePeriod, 0.0)
+end
+
+ScreenLogger{S<:State}(states::Array{S,1}, samplePeriod) = ScreenLogger{S}(states, samplePeriod)
+
+function init(logger::ScreenLogger)
+    print("Sample")
+
+    for state in logger.states
+        print(string("\t", getLogName(state)))
+    end
+
+    logger.startTime = time()
+
+    print("\n")
+end
+
+function log(logger::ScreenLogger, iter::Integer)
+
+    if iter % logger.samplePeriod != 0
+        return
+    end
+
+    print(iter)
+    for state in logger.states
+        print(string("\t", getLogValue(state)))
+    end
+
+    speed = (time() - logger.startTime)/iter*1e6
+    print("\t($speed seconds/MSample)")
+
+    print("\n")
+end
+
 function main()
     x = State{Float64}("x", 1.0)
     #op = ScaleOperator(1.2, x)
     op = UniformOperator(0.5, x)
     d = GaussianDistribution(10, 0.1, x)
-    logger = FlatTextLogger("samples.log", [x], 10)
+    fileLogger = FlatTextLogger("samples.log", [x], 100)
+    screenLogger = ScreenLogger([x], 100000)
 
-    run(d, [x], [op], [logger], 100000)
+    run(d, [x], [op], [fileLogger, screenLogger], 1000000)
 end
 
 end
