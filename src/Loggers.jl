@@ -1,7 +1,5 @@
 # Basic loggers
 
-export FlatTextLogger, ScreenLogger
-
 # Flat text file logger
 
 type FlatTextLogger{S<:State} <: Logger
@@ -22,7 +20,7 @@ function init(logger::FlatTextLogger)
     print(logger.outStream, "Sample")
 
     for state in logger.states
-        print(logger.outStream, string("\t", getLogName(state)))
+        print(logger.outStream, string("\t", getFlatTextLogName(state)))
     end
 
     print(logger.outStream, "\n")
@@ -36,7 +34,7 @@ function log(logger::FlatTextLogger, iter::Integer)
 
     print(logger.outStream, iter)
     for state in logger.states
-        print(logger.outStream, string("\t", getLogValue(state)))
+        print(logger.outStream, string("\t", getFlatTextLogValue(state)))
     end
 
     print(logger.outStream, "\n")
@@ -66,7 +64,7 @@ function init(logger::ScreenLogger)
     print("Sample")
 
     for state in logger.states
-        print(string("\t", getLogName(state)))
+        print(string("\t", getScreenLogName(state)))
     end
 
     logger.startTime = time()
@@ -82,11 +80,11 @@ function log(logger::ScreenLogger, iter::Integer)
 
     print(iter)
     for state in logger.states
-        print(string("\t", getLogValue(state)))
+        print(string("\t", getScreenLogValue(state)))
     end
 
     speed = (time() - logger.startTime)/iter*1e6
-    print("\t($speed seconds/MSample)")
+    print("\t($(round(speed,3)) seconds/MSample)")
 
     print("\n")
 end

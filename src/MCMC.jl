@@ -5,10 +5,11 @@ module MCMC
 
 import Base.show, Base.log, Base.close
 
-export State, run
+type UnimplementedMethodException <: Exception end
 
 abstract TargetDistribution
 function getLogDensity(d::TargetDistribution) end
+getStateDependencies(d::TargetDistribution) = throw(UnimplementedMethodException())
 
 abstract Operator
 function propose(op::Operator) end
@@ -17,18 +18,21 @@ type State{T}
     name
     value::T
     storedValue::T
-
-    State(name, value) = new(name, value, value)
+    isDirty::Bool
 end
 
-State{T}(name, value::T) = State{T}(name, value)
+State{T}(name, value::T) = State{T}(name, value, value, false)
 
 function store(state::State)
     state.storedValue = state.value
+    state.isDirty = false
 end
 
 function restore(state::State)
-    state.value = state.storedValue
+    if state.isDirty
+        state.value, state.storedValue = state.storedValue, state.value
+        state.isDirty = false
+    end
 end
 
 getLogName(state::State) = state.name
@@ -51,9 +55,8 @@ include("Trees.jl")
 """
 Run MCMC chain.
 """
-function run{S<:State,O<:Operator,L<:Logger}(d::TargetDistribution,
-    initialStateArray::Array{S,1}, operators::Array{O,1}, loggers::Array{L,1},
-    nIters::Integer)
+function run{O<:Operator,L<:Logger}(d::TargetDistribution,
+    operators::Array{O,1}, loggers::Array{L,1}, nIters::Integer)
 
     # Initialize loggers
     for logger in loggers
@@ -61,7 +64,7 @@ function run{S<:State,O<:Operator,L<:Logger}(d::TargetDistribution,
     end
 
     oldLogDensity = getLogDensity(d)
-    stateArray = initialStateArray
+    stateArray = getStateDependencies(d)
 
     for iter in 1:nIters
 
@@ -108,19 +111,6 @@ function reject{S<:State}(stateArray::Array{S,1})
     for state in stateArray
         restore(state)
     end
-end
-
-
-# Testing
-function main()
-    x = State{Float64}("x", 1.0)
-    #op = ScaleOperator(1.2, x)
-    op = UniformOperator(0.5, x)
-    d = GaussianDistribution(10, 0.1, x)
-    fileLogger = FlatTextLogger("samples.log", [x], 100)
-    screenLogger = ScreenLogger([x], 100000)
-
-    run(d, [x], [op], [fileLogger, screenLogger], 1000000)
 end
 
 end

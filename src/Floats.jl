@@ -1,7 +1,5 @@
 # Distributions and operators relevant to real numbers
 
-export ScaleOperator, UniformOperator, GaussianDistribution
-
 # Operators
 
 type ScaleOperator <: Operator
@@ -10,6 +8,8 @@ type ScaleOperator <: Operator
 end
 
 function propose(op::ScaleOperator)
+    op.param.isDirty = true
+
     minF = min(op.scaleFactor, 1/op.scaleFactor)
 
     f = minF + rand()*(1/minF - minF)
@@ -25,6 +25,8 @@ type UniformOperator <: Operator
 end
 
 function propose(op::UniformOperator)
+    op.param.isDirty = true
+
     op.param.value += (rand()-0.5)*op.windowSize
 
     return 0
@@ -38,5 +40,28 @@ type GaussianDistribution <: TargetDistribution
     variance::Float64
     x::State{Float64}
 end
+getStateDependencies(d::GaussianDistribution) = [d.x]
 
 getLogDensity(d::GaussianDistribution) = -(d.x.value - d.mean)^2/(2*d.variance)
+
+type ExponentialDistribution <: TargetDistribution
+    mean::Float64
+    x::State{Float64}
+end
+getStateDependencies(d::ExponentialDistribution) = [d.x]
+
+getLogDensity(d::ExponentialDistribution) = -d.x.value/d.mean - log(d.mean)
+
+
+# Testing
+function testGaussian()
+    x = State("x", 1.0)
+    op = UniformOperator(0.5, x)
+    d = GaussianDistribution(10, 0.1, x)
+    fileLogger = FlatTextLogger("samples.log", [x], 100)
+    screenLogger = ScreenLogger([x], 100000)
+
+    run(d, [op], [fileLogger, screenLogger], 1000000)
+end
+
+

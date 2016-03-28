@@ -1,8 +1,20 @@
 using TimeTrees
 
-export CoalescentTree, CoalescentDistribution, TreeScaler, TreeUniform
-
 # State initialization
+
+State{T<:TimeTree}(name, value::T) = State(name, value, getCopy(value), false)
+
+function store{T<:TimeTree}(state::State{T})
+    state.storedValue = getCopy(state.value)
+    state.isDirty = false
+end
+
+function restore{T<:TimeTree}(state::State{T})
+    if state.isDirty
+        state.value, state.storedValue = state.storedValue, state.value
+        state.isDirty = false
+    end
+end
 
 # Simulate coalescent tree
 function CoalescentTree(leafAges::Dict{ASCIIString,Float64}, popSize::Float64)
@@ -67,6 +79,7 @@ type CoalescentDistribution <: TargetDistribution
     popSize::Float64
     treeState::State{TimeTree}
 end
+getStateDependencies(d::CoalescentDistribution) = [d.treeState]
 
 function getLogDensity(d::CoalescentDistribution)
     tree = d.treeState.value
@@ -107,6 +120,8 @@ type TreeScaler <: Operator
 end
 
 function propose(op::TreeScaler)
+    op.treeState.isDirty = true
+
     fmin = min(op.scaleFactor, 1/op.scaleFactor)
     f = fmin + (1/fmin - fmin)*rand()
 
@@ -114,11 +129,11 @@ function propose(op::TreeScaler)
 
     for node in getInternalNodes(tree)
         node.age *= f;
+    end
 
-        for child in node.children
-            if isLeaf(child) && child.age > node.age
-                return -Inf
-            end
+    for leaf in getLeaves(tree)
+        if leaf.age > leaf.parent.age
+            return -Inf
         end
     end
 
@@ -130,6 +145,8 @@ type TreeUniform <: Operator
 end
 
 function propose(op::TreeUniform)
+    op.treeState.isDirty = true
+
     tree = op.treeState.value
 
     node = rand(getInternalNodes(tree))
@@ -156,3 +173,26 @@ getScreenLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
 
 getFlatTextLogName{T<:TimeTree}(state::State{T}) = string(state.name, "_height")
 getFlatTextLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
+
+# Testing
+function testCoalescent()
+    t = State("tree", TimeTree("(A:2,B:2);"))
+    op = TreeScaler(0.8, t)
+    #op = ScaleOperator(0.5, x)
+    d = CoalescentDistribution(1.0, t)
+    println(t.value.root)
+    println("Coal density: $(getLogDensity(d))")
+
+    x = State("x", 2.0)
+    dp = ExponentialDistribution(1.0,x)
+    println("Exp density: $(getLogDensity(dp))")
+
+    #d = ExponentialDistribution(1.0, x)
+    screenLogger = ScreenLogger([t], 100000)
+    flatTextLogger = FlatTextLogger("samples.log", [t], 100)
+
+    run(d, [op], [screenLogger, flatTextLogger], 1000000)
+
+    print("\n$((getInternalNodes(t.value)))\n")
+end
+
