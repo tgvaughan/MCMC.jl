@@ -9,30 +9,33 @@ type UnimplementedMethodException <: Exception end
 
 abstract TargetDistribution
 function getLogDensity(d::TargetDistribution) end
-getStateDependencies(d::TargetDistribution) = throw(UnimplementedMethodException())
+getDeps(d::TargetDistribution) = throw(UnimplementedMethodException())
 
 abstract Operator
+getDeps(op::Operator) = throw(UnimplementedMethodException())
 function propose(op::Operator) end
+function proposeAndMarkDirty(op::Operator)
+    for state in getDeps(op)
+        state.isDirty = true
+    end
+
+    propose(op)
+end
 
 type State{T}
     name
     value::T
     storedValue::T
-    isDirty::Bool
 end
 
-State{T}(name, value::T) = State{T}(name, value, value, false)
+State{T}(name, value::T) = State{T}(name, value, value)
 
 function store(state::State)
     state.storedValue = state.value
-    state.isDirty = false
 end
 
 function restore(state::State)
-    if state.isDirty
-        state.value, state.storedValue = state.storedValue, state.value
-        state.isDirty = false
-    end
+    state.value, state.storedValue = state.storedValue, state.value
 end
 
 getLogName(state::State) = state.name
@@ -64,12 +67,14 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
     end
 
     oldLogDensity = getLogDensity(d)
-    stateArray = getStateDependencies(d)
 
     for iter in 1:nIters
 
        # Propose new state
-       HF = propose(rand(operators))
+       op = rand(operators)
+       store(getDeps(op))
+
+       HF = propose(op)
 
        if HF > -Inf
            # Evaluate target density of new state
@@ -81,12 +86,11 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
            # Determine fate of proposal
            if alpha > 1 || rand()<alpha
                oldLogDensity = newLogDensity
-               accept(stateArray)
            else
-               reject(stateArray)
+               restore(getDeps(op))
            end
        else
-           reject(stateArray)
+           restore(getDeps(op))
        end
 
        # Log state if necessary
@@ -101,13 +105,13 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
     end
 end
 
-function accept{S<:State}(stateArray::Array{S,1})
+function store{S<:State}(stateArray::Array{S,1})
     for state in stateArray
         store(state)
     end
 end
 
-function reject{S<:State}(stateArray::Array{S,1})
+function restore{S<:State}(stateArray::Array{S,1})
     for state in stateArray
         restore(state)
     end

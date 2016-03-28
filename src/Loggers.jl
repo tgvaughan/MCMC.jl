@@ -23,7 +23,7 @@ function init(logger::FlatTextLogger)
         print(logger.outStream, string("\t", getFlatTextLogName(state)))
     end
 
-    print(logger.outStream, "\n")
+    println(logger.outStream)
 end
 
 function log(logger::FlatTextLogger, iter::Integer)
@@ -37,7 +37,7 @@ function log(logger::FlatTextLogger, iter::Integer)
         print(logger.outStream, string("\t", getFlatTextLogValue(state)))
     end
 
-    print(logger.outStream, "\n")
+    println(logger.outStream)
 end
 
 function close(logger::FlatTextLogger)
@@ -69,7 +69,7 @@ function init(logger::ScreenLogger)
 
     logger.startTime = time()
 
-    print("\n")
+    println()
 end
 
 function log(logger::ScreenLogger, iter::Integer)
@@ -86,5 +86,5 @@ function log(logger::ScreenLogger, iter::Integer)
     speed = (time() - logger.startTime)/iter*1e6
     print("\t($(round(speed,3)) seconds/MSample)")
 
-    print("\n")
+    println()
 end

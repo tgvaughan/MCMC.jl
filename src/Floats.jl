@@ -6,10 +6,9 @@ type ScaleOperator <: Operator
     scaleFactor::Float64
     param::State{Float64}
 end
+getDeps(op::ScaleOperator) = [op.param]
 
 function propose(op::ScaleOperator)
-    op.param.isDirty = true
-
     minF = min(op.scaleFactor, 1/op.scaleFactor)
 
     f = minF + rand()*(1/minF - minF)
@@ -23,10 +22,9 @@ type UniformOperator <: Operator
     windowSize::Float64
     param::State{Float64}
 end
+getDeps(op::UniformOperator) = [op.param]
 
 function propose(op::UniformOperator)
-    op.param.isDirty = true
-
     op.param.value += (rand()-0.5)*op.windowSize
 
     return 0
@@ -40,7 +38,7 @@ type GaussianDistribution <: TargetDistribution
     variance::Float64
     x::State{Float64}
 end
-getStateDependencies(d::GaussianDistribution) = [d.x]
+getDeps(d::GaussianDistribution) = [d.x]
 
 getLogDensity(d::GaussianDistribution) = -(d.x.value - d.mean)^2/(2*d.variance)
 
@@ -48,7 +46,7 @@ type ExponentialDistribution <: TargetDistribution
     mean::Float64
     x::State{Float64}
 end
-getStateDependencies(d::ExponentialDistribution) = [d.x]
+getDeps(d::ExponentialDistribution) = [d.x]
 
 getLogDensity(d::ExponentialDistribution) = -d.x.value/d.mean - log(d.mean)
 

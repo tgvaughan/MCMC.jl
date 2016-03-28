@@ -2,18 +2,14 @@ using TimeTrees
 
 # State initialization
 
-State{T<:TimeTree}(name, value::T) = State(name, value, getCopy(value), false)
+State{T<:TimeTree}(name, value::T) = State(name, value, getCopy(value))
 
 function store{T<:TimeTree}(state::State{T})
     state.storedValue = getCopy(state.value)
-    state.isDirty = false
 end
 
 function restore{T<:TimeTree}(state::State{T})
-    if state.isDirty
-        state.value, state.storedValue = state.storedValue, state.value
-        state.isDirty = false
-    end
+    state.value, state.storedValue = state.storedValue, state.value
 end
 
 # Simulate coalescent tree
@@ -79,7 +75,7 @@ type CoalescentDistribution <: TargetDistribution
     popSize::Float64
     treeState::State{TimeTree}
 end
-getStateDependencies(d::CoalescentDistribution) = [d.treeState]
+getDeps(d::CoalescentDistribution) = [d.treeState]
 
 function getLogDensity(d::CoalescentDistribution)
     tree = d.treeState.value
@@ -114,14 +110,13 @@ end
 
 # Operators
 
-type TreeScaler <: Operator
+type TreeScaler{T<:TimeTree} <: Operator
     scaleFactor::Float64
-    treeState::State{TimeTree}
+    treeState::State{T}
 end
+getDeps(op::TreeScaler) = [op.treeState]
 
 function propose(op::TreeScaler)
-    op.treeState.isDirty = true
-
     fmin = min(op.scaleFactor, 1/op.scaleFactor)
     f = fmin + (1/fmin - fmin)*rand()
 
@@ -140,13 +135,12 @@ function propose(op::TreeScaler)
     return (length(getInternalNodes(tree))-2)*log(f)
 end
 
-type TreeUniform <: Operator
-    treeState::State{TimeTree}
+type TreeUniform{T<:TimeTree} <: Operator
+    treeState::State{T}
 end
+getDeps(op::TreeUniform) = [op.treeState]
 
 function propose(op::TreeUniform)
-    op.treeState.isDirty = true
-
     tree = op.treeState.value
 
     node = rand(getInternalNodes(tree))
@@ -165,6 +159,27 @@ function propose(op::TreeUniform)
     return 0.0
 end
 
+type TreeWilsonBalding{T<:TimeTree} <: Operator
+    alpha::Float64
+    treeState::State{T}
+end
+getDeps(op::TreeWilsonBalding) = [op.treeState]
+
+function propose(op::TreeWilsonBalding)
+    tree = op.treeState.value
+
+    if (length(getNodes(tree))<3)
+        return -Inf
+    end
+
+    nodeI = rand(getNodes(tree))
+    nodeJ = rand(getNodes(tree))
+    while nodeJ == nodeI
+        nodeJ = rand(getNodes(tree))
+    end
+
+    # TODO
+end
 
 # Loggers
 
@@ -174,25 +189,46 @@ getScreenLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
 getFlatTextLogName{T<:TimeTree}(state::State{T}) = string(state.name, "_height")
 getFlatTextLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
 
+type TreeLogger{T<:TimeTree} <: Logger
+    outStream::IOStream
+    treeState::State{T}
+    samplePeriod::Integer
+end
+
+function TreeLogger{T<:TimeTree}(fileName::ASCIIString, treeState::State{T}, samplePeriod::Integer)
+    outStream = open(fileName, "w")
+    TreeLogger(outStream, treeState, samplePeriod)
+end
+
+function init(logger::TreeLogger)
+    println(logger.outStream, "#nexus")
+    println(logger.outStream, "begin trees;")
+end
+
+function log(logger::TreeLogger, iter::Integer)
+    if iter % logger.samplePeriod != 0
+        return
+    end
+
+    println(logger.outStream, "tree tree_$iter = $(getNewick(logger.treeState.value))")
+end
+
+function close(logger::TreeLogger)
+    println(logger.outStream, "end;")
+    close(logger.outStream)
+end
+
 # Testing
 function testCoalescent()
-    t = State("tree", TimeTree("(A:2,B:2);"))
-    op = TreeScaler(0.8, t)
-    #op = ScaleOperator(0.5, x)
+    t = State("tree", CoalescentTree([string(i) => rand() for i = 1:5], 1.0))
+    ops = [TreeScaler(0.8, t)]
+
     d = CoalescentDistribution(1.0, t)
-    println(t.value.root)
-    println("Coal density: $(getLogDensity(d))")
 
-    x = State("x", 2.0)
-    dp = ExponentialDistribution(1.0,x)
-    println("Exp density: $(getLogDensity(dp))")
+    loggers = [ScreenLogger([t], 10000),
+                FlatTextLogger("samples.log", [t], 100),
+                TreeLogger("trees.log", t, 1000)]
 
-    #d = ExponentialDistribution(1.0, x)
-    screenLogger = ScreenLogger([t], 100000)
-    flatTextLogger = FlatTextLogger("samples.log", [t], 100)
-
-    run(d, [op], [screenLogger, flatTextLogger], 1000000)
-
-    print("\n$((getInternalNodes(t.value)))\n")
+    run(d, ops, loggers, 100000)
 end
 
