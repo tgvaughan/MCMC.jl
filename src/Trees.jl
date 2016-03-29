@@ -12,7 +12,8 @@ function store{T<:TimeTree}(state::State{T})
     tree = state.value
     storedTree = state.storedValue
 
-     for (i, node) in enumerate(tree.nodes)
+    for i in 1:length(tree.nodes)
+        node = tree.nodes[i]
         storedTree.nodes[i].age = node.age
 
         if isRoot(node)
@@ -22,8 +23,8 @@ function store{T<:TimeTree}(state::State{T})
             storedTree.nodes[i].parent = storedTree.nodes[node.parent.number]
         end
 
-        for (ci, child) in enumerate(node.children)
-            storedTree.nodes[i].children[ci] = storedTree.nodes[child.number]
+        for ci in 1:length(node.children)
+            storedTree.nodes[i].children[ci] = storedTree.nodes[node.children[ci].number]
         end
 
     end
