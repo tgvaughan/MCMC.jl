@@ -108,12 +108,17 @@ function getLogDensity(d::CoalescentDistribution)
     tree = d.treeState.value
     logP = 0.0
 
-    nodes = getNodes(tree)[:]
-    sort!(nodes, by=n->n.age)
+    nodes = getNodes(tree)
+    ages = zeros(length(nodes))
+    for i in 1:length(nodes)
+        ages[i] = nodes[i].age
+    end
+
+    nodeIndices = sortperm(ages)
 
     k = 1
     t = 0.0
-    for i in 2:length(nodes)
+    for i in nodeIndices[2:length(nodes)]
         node = nodes[i]
 
         dt = node.age - t
@@ -476,11 +481,12 @@ end
 # Testing
 
 function testCoalescent(;sim=true)
-    taxa = [string(i) => rand() for i = 1:100]
+    #taxa = [string(i) => rand() for i = 1:100]
+    taxa = [string(i) => 0.0 for i = 1:100]
 
     t = State("tree", CoalescentTree(taxa, 1.0))
-    ops = [(TreeScaler(0.8, t), 1.0),
-        (TreeRootScaler(0.8, t), 1.0),
+    ops = [(TreeScaler(0.5, t), 1.0),
+        (TreeRootScaler(0.2, t), 1.0),
         (TreeUniform(t), 1.0),
         (TreeWilsonBalding(0.1, t), 1.0),
         (SubtreeExchangeNarrow(0.1, t), 1.0),
