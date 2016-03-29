@@ -482,7 +482,6 @@ end
 # Testing
 
 function testCoalescent(;sim=true)
-    #taxa = [string(i) => rand() for i = 1:100]
     taxa = [string(i) => 0.0 for i = 1:100]
 
     t = State("tree", CoalescentTree(taxa, 1.0))

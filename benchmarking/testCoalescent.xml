@@ -1,0 +1,174 @@
+<beast version='2.0'
+       namespace='beast.core:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.evolution.likelihood'>
+
+
+    <!-- The sequence alignment (each sequence refers to a taxon above).         -->
+    <!-- ntax=6 nchar=768                                                        -->
+    <!-- npatterns=69                                                            -->
+    <data id="alignment" dataType="nucleotide">
+        <sequence taxon="t1" value="A"/>
+        <sequence taxon="t2" value="A"/>
+        <sequence taxon="t3" value="A"/>
+        <sequence taxon="t4" value="A"/>
+        <sequence taxon="t5" value="A"/>
+        <sequence taxon="t6" value="A"/>
+        <sequence taxon="t7" value="A"/>
+        <sequence taxon="t9" value="A"/>
+        <sequence taxon="t10" value="A"/>
+        
+        <sequence taxon="t11" value="A"/>
+        <sequence taxon="t12" value="A"/>
+        <sequence taxon="t13" value="A"/>
+        <sequence taxon="t14" value="A"/>
+        <sequence taxon="t15" value="A"/>
+        <sequence taxon="t16" value="A"/>
+        <sequence taxon="t17" value="A"/>
+        <sequence taxon="t19" value="A"/>
+        <sequence taxon="t20" value="A"/>
+
+        <sequence taxon="t21" value="A"/>
+        <sequence taxon="t22" value="A"/>
+        <sequence taxon="t23" value="A"/>
+        <sequence taxon="t24" value="A"/>
+        <sequence taxon="t25" value="A"/>
+        <sequence taxon="t26" value="A"/>
+        <sequence taxon="t27" value="A"/>
+        <sequence taxon="t29" value="A"/>
+        <sequence taxon="t30" value="A"/>
+
+
+        <sequence taxon="t31" value="A"/>
+        <sequence taxon="t32" value="A"/>
+        <sequence taxon="t33" value="A"/>
+        <sequence taxon="t34" value="A"/>
+        <sequence taxon="t35" value="A"/>
+        <sequence taxon="t36" value="A"/>
+        <sequence taxon="t37" value="A"/>
+        <sequence taxon="t39" value="A"/>
+        <sequence taxon="t40" value="A"/>
+
+        <sequence taxon="t41" value="A"/>
+        <sequence taxon="t42" value="A"/>
+        <sequence taxon="t43" value="A"/>
+        <sequence taxon="t44" value="A"/>
+        <sequence taxon="t45" value="A"/>
+        <sequence taxon="t46" value="A"/>
+        <sequence taxon="t47" value="A"/>
+        <sequence taxon="t49" value="A"/>
+        <sequence taxon="t50" value="A"/>
+
+        <sequence taxon="t51" value="A"/>
+        <sequence taxon="t52" value="A"/>
+        <sequence taxon="t53" value="A"/>
+        <sequence taxon="t54" value="A"/>
+        <sequence taxon="t55" value="A"/>
+        <sequence taxon="t56" value="A"/>
+        <sequence taxon="t57" value="A"/>
+        <sequence taxon="t59" value="A"/>
+        <sequence taxon="t60" value="A"/>
+
+
+        <sequence taxon="t61" value="A"/>
+        <sequence taxon="t62" value="A"/>
+        <sequence taxon="t63" value="A"/>
+        <sequence taxon="t64" value="A"/>
+        <sequence taxon="t65" value="A"/>
+        <sequence taxon="t66" value="A"/>
+        <sequence taxon="t67" value="A"/>
+        <sequence taxon="t69" value="A"/>
+        <sequence taxon="t70" value="A"/>
+
+
+        <sequence taxon="t71" value="A"/>
+        <sequence taxon="t72" value="A"/>
+        <sequence taxon="t73" value="A"/>
+        <sequence taxon="t74" value="A"/>
+        <sequence taxon="t75" value="A"/>
+        <sequence taxon="t76" value="A"/>
+        <sequence taxon="t77" value="A"/>
+        <sequence taxon="t79" value="A"/>
+        <sequence taxon="t80" value="A"/>
+
+
+        <sequence taxon="t81" value="A"/>
+        <sequence taxon="t82" value="A"/>
+        <sequence taxon="t83" value="A"/>
+        <sequence taxon="t84" value="A"/>
+        <sequence taxon="t85" value="A"/>
+        <sequence taxon="t86" value="A"/>
+        <sequence taxon="t87" value="A"/>
+        <sequence taxon="t89" value="A"/>
+        <sequence taxon="t90" value="A"/>
+
+
+        <sequence taxon="t91" value="A"/>
+        <sequence taxon="t92" value="A"/>
+        <sequence taxon="t93" value="A"/>
+        <sequence taxon="t94" value="A"/>
+        <sequence taxon="t95" value="A"/>
+        <sequence taxon="t96" value="A"/>
+        <sequence taxon="t97" value="A"/>
+        <sequence taxon="t99" value="A"/>
+        <sequence taxon="t100" value="A"/>
+    </data>
+
+    <input spec='beast.evolution.tree.RandomTree' id='tree'>
+        <input name='taxa' idref='alignment'/>
+        <populationModel spec="ConstantPopulation">
+            <popSize spec="beast.core.parameter.RealParameter" value="1.0"/>
+        </populationModel>
+    </input>
+
+    <input spec='beast.core.parameter.RealParameter' id="popSize">1.0</input>
+
+
+    <run spec="MCMC" id="mcmc" chainLength="1000000"> <!--autoOptimize="true"-->
+        <state>
+            <input name='stateNode' idref='tree'/>
+        </state>
+
+        <distribution spec="CompoundDistribution" id="posterior">
+            <distribution id="coalescent" spec="Coalescent">
+                <treeIntervals spec='TreeIntervals' id='TreeIntervals'>
+                     <tree idref="tree"/>
+                </treeIntervals>
+                <populationModel spec="ConstantPopulation" id='ConstantPopulation'>
+                    <parameter name="popSize" idref="popSize"/>
+                </populationModel>
+            </distribution>
+        </distribution>
+
+        <operator id='treeScaler' spec='ScaleOperator' scaleFactor="0.8" weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator id='treeScalerRoot' spec='ScaleOperator' scaleFactor="0.8" rootOnly="true" weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator spec='Uniform' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator id='narrow' spec='Exchange' isNarrow='true' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator id='wide' spec='Exchange' isNarrow='false' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator spec='WilsonBalding' weight="1">
+            <tree idref="tree"/>
+        </operator>
+
+        <logger logEvery="100" fileName="$(filebase).log">
+            <!--parameter idref="treeModel.rootHeight"/-->
+            <log id="tree_height" spec="beast.evolution.tree.TreeHeightLogger" tree="@tree"/>
+            <log idref="popSize"/>
+        </logger>
+        <logger logEvery="1000" fileName="$(filebase).trees">
+            <log idref="tree"/>
+        </logger>
+        <logger logEvery="100000">
+            <log idref="tree_height"/>
+            <log idref="popSize"/>
+        </logger>
+    </run>
+
+</beast>
