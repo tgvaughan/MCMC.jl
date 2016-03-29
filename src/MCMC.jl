@@ -4,6 +4,7 @@ Module for phylogenetics-related MCMC.
 module MCMC
 
 import Base.show, Base.log, Base.close
+import StatsBase.sample, StatsBase.WeightVec
 
 type UnimplementedMethodException <: Exception end
 
@@ -38,7 +39,7 @@ include("Floats.jl")
 
 abstract Logger
 function init(logger::Logger) end
-function log(logger::Logger, iter::Integer) end
+function log(logger::Logger, iter::Int) end
 function close(logger::Logger) end
 summary(logger::Logger) = print("This logger does not provide a summary.")
 trace(logger::Logger) = print("This logger does not provide a trace.")
@@ -52,7 +53,7 @@ include("Trees.jl")
 Run MCMC chain.
 """
 function run{O<:Operator,L<:Logger}(d::TargetDistribution,
-    operators::Array{O,1}, loggers::Array{L,1}, nIters::Integer)
+    weightedOperators::Array{Tuple{O,Float64},1}, loggers::Array{L,1}, nIters::Int)
 
     # Initialize loggers
     for logger in loggers
@@ -60,11 +61,13 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
     end
 
     oldLogDensity = getLogDensity(d)
+    weightVec = WeightVec(map(x->x[2], weightedOperators))
+    opVec = map(x->x[1], weightedOperators)
 
     for iter in 1:nIters
 
        # Propose new state
-       op = rand(operators)
+       op = sample(opVec, weightVec)
        store(getDeps(op))
 
        HF = propose(op)
@@ -97,6 +100,12 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
         close(logger)
     end
 end
+
+function run{O<:Operator,L<:Logger}(d::TargetDistribution,
+            operators::Array{O,1}, loggers::Array{L,1}, nIters::Int)
+    run(d, [op => 1.0 for op = operators], loggers, nIters)
+end
+
 
 function store{S<:State}(stateArray::Array{S,1})
     for state in stateArray

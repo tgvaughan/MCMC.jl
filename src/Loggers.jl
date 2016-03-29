@@ -5,10 +5,10 @@
 type FlatTextLogger{S<:State} <: Logger
     outStream::IOStream
     states::Array{S,1}
-    samplePeriod::Integer
+    samplePeriod::Int
 end
 
-function FlatTextLogger{S<:State}(fileName::ASCIIString, states::Array{S,1}, samplePeriod::Integer)
+function FlatTextLogger{S<:State}(fileName::ASCIIString, states::Array{S,1}, samplePeriod::Int)
     outStream = open(fileName, "w")
     FlatTextLogger(outStream, states, samplePeriod)
 end
@@ -30,7 +30,7 @@ function init(logger::FlatTextLogger)
     flush(logger.outStream)
 end
 
-function log(logger::FlatTextLogger, iter::Integer)
+function log(logger::FlatTextLogger, iter::Int)
 
     if iter % logger.samplePeriod != 0
         return
@@ -57,7 +57,7 @@ end
 
 type ScreenLogger{S<:State} <: Logger
     states::Array{S,1}
-    samplePeriod::Integer
+    samplePeriod::Int
     startTime::Float64
 
     ScreenLogger(states, samplePeriod) = new(states, samplePeriod, 0.0)
@@ -84,7 +84,7 @@ function init(logger::ScreenLogger)
     flush(STDOUT)
 end
 
-function log(logger::ScreenLogger, iter::Integer)
+function log(logger::ScreenLogger, iter::Int)
 
     if iter % logger.samplePeriod != 0
         return
