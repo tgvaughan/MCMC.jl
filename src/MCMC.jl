@@ -14,13 +14,6 @@ getDeps(d::TargetDistribution) = throw(UnimplementedMethodException())
 abstract Operator
 getDeps(op::Operator) = throw(UnimplementedMethodException())
 function propose(op::Operator) end
-function proposeAndMarkDirty(op::Operator)
-    for state in getDeps(op)
-        state.isDirty = true
-    end
-
-    propose(op)
-end
 
 type State{T}
     name
