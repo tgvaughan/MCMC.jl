@@ -2,10 +2,30 @@ using TimeTrees
 
 # State initialization
 
-State{T<:TimeTree}(name, value::T) = State(name, value, getCopy(value))
+State{T<:TimeTree}(name, tree::T) = State(name, tree, getCopy(tree))
+
+# Tree state storing (only topology and edge lengths are stored)
 
 function store{T<:TimeTree}(state::State{T})
-    state.storedValue = getCopy(state.value)
+    tree = state.value
+    storedTree = state.storedValue
+
+     for (i, node) in enumerate(tree.nodes)
+        storedTree.nodes[i].age = node.age
+
+        if isRoot(node)
+            storedTree.nodes[i].parent = storedTree.nodes[i]
+            storedTree.root = storedTree.nodes[i]
+        else
+            storedTree.nodes[i].parent = storedTree.nodes[node.parent.number]
+        end
+
+        for (ci, child) in enumerate(node.children)
+            storedTree.nodes[i].children[ci] = storedTree.nodes[child.number]
+        end
+
+    end
+        
 end
 
 function restore{T<:TimeTree}(state::State{T})
@@ -81,7 +101,7 @@ function getLogDensity(d::CoalescentDistribution)
     tree = d.treeState.value
     logP = 0.0
 
-    nodes = getNodes(tree)
+    nodes = getNodes(tree)[:]
     sort!(nodes, by=n->n.age)
 
     k = 1
@@ -178,6 +198,9 @@ function propose(op::TreeWilsonBalding)
         nodeJ = rand(getNodes(tree))
     end
 
+    if !isRoot(nodeJ) && nodeJ.parent.age < nodeI.age || !isRoot(nodeI) 
+    end
+
     # TODO
 end
 
@@ -211,6 +234,8 @@ function log(logger::TreeLogger, iter::Integer)
     end
 
     println(logger.outStream, "tree tree_$iter = $(getNewick(logger.treeState.value))")
+
+    flush(logger.outStream)
 end
 
 function close(logger::TreeLogger)
@@ -220,15 +245,15 @@ end
 
 # Testing
 function testCoalescent()
-    t = State("tree", CoalescentTree([string(i) => rand() for i = 1:5], 1.0))
+    t = State("tree", CoalescentTree([string(i) => 0.0 for i = 1:10], 1.0))
     ops = [TreeScaler(0.8, t)]
 
     d = CoalescentDistribution(1.0, t)
 
-    loggers = [ScreenLogger([t], 10000),
+    loggers = [ScreenLogger([t], 100000),
                 FlatTextLogger("samples.log", [t], 100),
                 TreeLogger("trees.log", t, 1000)]
 
-    run(d, ops, loggers, 100000)
+    run(d, ops, loggers, 1000000)
 end
 
