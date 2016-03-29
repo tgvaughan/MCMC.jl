@@ -13,14 +13,16 @@ function FlatTextLogger{S<:State}(fileName::ASCIIString, states::Array{S,1}, sam
     FlatTextLogger(outStream, states, samplePeriod)
 end
 
-getFlatTextLogName(state) = getLogName(state)
-getFlatTextLogValue(state) = getLogValue(state)
+getFlatTextLogNames(state) = getLogNames(state)
+getFlatTextLogValues(state) = getLogValues(state)
 
 function init(logger::FlatTextLogger)
     print(logger.outStream, "Sample")
 
     for state in logger.states
-        print(logger.outStream, string("\t", getFlatTextLogName(state)))
+        for name in getFlatTextLogNames(state)
+            print(logger.outStream, string("\t", name))
+        end
     end
 
     println(logger.outStream)
@@ -36,7 +38,9 @@ function log(logger::FlatTextLogger, iter::Integer)
 
     print(logger.outStream, iter)
     for state in logger.states
-        print(logger.outStream, string("\t", getFlatTextLogValue(state)))
+        for value in getFlatTextLogValues(state)
+            print(logger.outStream, string("\t", value))
+        end
     end
 
     println(logger.outStream)
@@ -61,14 +65,16 @@ end
 
 ScreenLogger{S<:State}(states::Array{S,1}, samplePeriod) = ScreenLogger{S}(states, samplePeriod)
 
-getScreenLogName(state) = getLogName(state)
-getScreenLogValue(state) = getLogValue(state)
+getScreenLogNames(state) = getLogNames(state)
+getScreenLogValues(state) = getLogValues(state)
 
 function init(logger::ScreenLogger)
     print("Sample")
 
     for state in logger.states
-        print(string("\t", getScreenLogName(state)))
+        for name in getScreenLogNames(state)
+            print(string("\t", name))
+        end
     end
 
     logger.startTime = time()
@@ -86,7 +92,9 @@ function log(logger::ScreenLogger, iter::Integer)
 
     print(iter)
     for state in logger.states
-        print(string("\t", getScreenLogValue(state)))
+        for value in getScreenLogValues(state)
+            print(string("\t", value))
+        end
     end
 
     speed = (time() - logger.startTime)/iter*1e6

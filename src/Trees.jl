@@ -1,3 +1,5 @@
+# Distributions and operators relevant to phylogenetic trees
+
 using TimeTrees
 
 # State initialization
@@ -54,7 +56,7 @@ function CoalescentTree(leafAges::Dict{ASCIIString,Float64}, popSize::Float64)
     while length(activeNodes)>1 || !isempty(unprocessedLeaves)
 
         k = length(activeNodes)
-        coalRate = k*(k-1)/popSize
+        coalRate = 0.5*k*(k-1)/popSize
 
         # Sample time of next event
         if coalRate>0.0
@@ -130,6 +132,8 @@ end
 
 # Operators
 
+## Tree Scaler
+
 type TreeScaler{T<:TimeTree} <: Operator
     scaleFactor::Float64
     treeState::State{T}
@@ -155,6 +159,8 @@ function propose(op::TreeScaler)
     return (length(getInternalNodes(tree))-2)*log(f)
 end
 
+## Uniform node height shifter
+
 type TreeUniform{T<:TimeTree} <: Operator
     treeState::State{T}
 end
@@ -162,6 +168,10 @@ getDeps(op::TreeUniform) = [op.treeState]
 
 function propose(op::TreeUniform)
     tree = op.treeState.value
+
+    if getLeafCount(tree)<3
+        return -Inf
+    end
 
     node = rand(getInternalNodes(tree))
     while isRoot(node)
@@ -179,38 +189,175 @@ function propose(op::TreeUniform)
     return 0.0
 end
 
+## Wilson-Balding move
+
 type TreeWilsonBalding{T<:TimeTree} <: Operator
     alpha::Float64
     treeState::State{T}
 end
 getDeps(op::TreeWilsonBalding) = [op.treeState]
 
+function getSibling(node::Node)
+    node.parent.children[1] == node ? node.parent.children[2] : node.parent.children[1]
+end
+
+function replaceChild(parent::Node, oldChild::Node, newChild::Node)
+    newChild.parent = parent
+    for i in 1:length(parent.children)
+        if parent.children[i] == oldChild
+            parent.children[i] = newChild
+            break
+        end
+    end
+end
+
+function invalidSrcNode(srcNode::Node)
+    if isRoot(srcNode)
+        return true
+    end
+
+    sister = getSibling(srcNode)
+
+    if isRoot(srcNode.parent)
+        return isLeaf(sister) || srcNode.age >= sister.age
+    end
+
+    return false
+end
+
+function invalidDestNode(srcNode::Node, destNode::Node)
+    if destNode == srcNode || destNode == srcNode.parent || destNode.parent == srcNode.parent
+        return true
+    end
+
+    if !isRoot(destNode) && (destNode.parent.age <= srcNode.age)
+        return true
+    end
+
+    return false
+end
+
 function propose(op::TreeWilsonBalding)
     tree = op.treeState.value
 
-    if (length(getNodes(tree))<3)
+    if getLeafCount(tree)<3
         return -Inf
     end
 
-    nodeI = rand(getNodes(tree))
-    nodeJ = rand(getNodes(tree))
-    while nodeJ == nodeI
-        nodeJ = rand(getNodes(tree))
+    nodes = getNodes(tree)
+
+    srcNode = rand(nodes)
+    while invalidSrcNode(srcNode)
+        srcNode = rand(nodes)
     end
 
-    if !isRoot(nodeJ) && nodeJ.parent.age < nodeI.age || !isRoot(nodeI) 
+    destNode = rand(nodes)
+    while invalidDestNode(srcNode, destNode)
+        destNode = rand(nodes)
     end
 
-    # TODO
+    if isRoot(destNode)
+        # Forward root move
+
+        logHR = 0.0
+
+        srcNodeS = getSibling(srcNode)
+        srcNodeG = srcNode.parent.parent
+
+        logHR += -log(srcNodeG.age - max(srcNode.age, srcNodeS.age))
+
+        replaceChild(srcNodeG, srcNode.parent, srcNodeS)
+        replaceChild(srcNode.parent, srcNodeS, destNode)
+
+        tree.root = srcNode.parent
+        srcNode.parent.parent = srcNode.parent
+
+        srcNode.parent.age = destNode.age + randexp()*op.alpha
+
+        logHR -= -(srcNode.parent.age-destNode.age)/op.alpha + log(1/op.alpha)
+
+        return logHR
+    end
+
+    if isRoot(srcNode.parent)
+        # Reverse root move
+
+        logHR = 0.0
+
+        srcNodeS = getSibling(srcNode)
+
+        logHR += -(srcNode.parent.age - srcNodeS.age)/op.alpha + log(1/op.alpha)
+
+        destNodeP = destNode.parent
+
+        replaceChild(destNodeP, destNode, srcNode.parent)
+        replaceChild(srcNode.parent, srcNodeS, destNode)
+
+        tree.root = srcNodeS
+        srcNodeS.parent = srcNodeS
+
+        minAge = max(srcNode.age, destNode.age)
+        maxAge = destNodeP.age
+        srcNode.parent.age = minAge + rand()*(maxAge - minAge)
+
+        logHR -= -log(maxAge-minAge)
+
+        return logHR
+    end
+
+    # Non-root move
+
+    logHR = 0.0
+
+    srcNodeS = getSibling(srcNode)
+    srcNodeG = srcNode.parent.parent
+
+    logHR += -log(srcNodeG.age-max(srcNodeS.age,srcNode.age))
+
+    destNodeP = destNode.parent
+
+    replaceChild(srcNodeG, srcNode.parent, srcNodeS)
+    replaceChild(destNodeP, destNode, srcNode.parent)
+    replaceChild(srcNode.parent, srcNodeS, destNode)
+
+    minAge = max(destNode.age, srcNode.age)
+    maxAge = destNodeP.age
+    srcNode.parent.age = minAge + rand()*(maxAge - minAge)
+
+    logHR -= -log(maxAge-minAge)
+
+    return logHR
+
 end
+
+## Subtree exchange move
 
 # Loggers
 
-getScreenLogName{T<:TimeTree}(state::State{T}) = string(state.name, "_height")
-getScreenLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
+## Summary statistics
 
-getFlatTextLogName{T<:TimeTree}(state::State{T}) = string(state.name, "_height")
-getFlatTextLogValue{T<:TimeTree}(state::State{T}) = state.value.root.age
+function getTreeLength(tree::TimeTree)
+    l = 0.0
+    for node in getNodes(tree)
+        if !isRoot(node)
+            l += node.parent.age - node.age
+        end
+    end
+
+    return l
+end
+
+## Screen and flat text logging
+
+getScreenLogNames{T<:TimeTree}(state::State{T}) =
+    [string(state.name, "_height"), string(state.name, "_length")]
+getScreenLogValues{T<:TimeTree}(state::State{T}) = 
+    [state.value.root.age, getTreeLength(state.value)]
+
+getFlatTextLogNames{T<:TimeTree}(state::State{T}) = getScreenLogNames(state)
+getFlatTextLogValues{T<:TimeTree}(state::State{T}) = getScreenLogValues(state)
+
+## Tree logging
 
 type TreeLogger{T<:TimeTree} <: Logger
     outStream::IOStream
@@ -244,9 +391,12 @@ function close(logger::TreeLogger)
 end
 
 # Testing
+
 function testCoalescent()
-    t = State("tree", CoalescentTree([string(i) => 0.0 for i = 1:10], 1.0))
-    ops = [TreeScaler(0.8, t)]
+    taxa = [string(i) => rand() for i = 1:10]
+
+    t = State("tree", CoalescentTree(taxa, 1.0))
+    ops = [TreeScaler(0.8, t), TreeUniform(t), TreeWilsonBalding(0.1, t)]
 
     d = CoalescentDistribution(1.0, t)
 
@@ -254,6 +404,18 @@ function testCoalescent()
                 FlatTextLogger("samples.log", [t], 100),
                 TreeLogger("trees.log", t, 1000)]
 
-    run(d, ops, loggers, 1000000)
+    run(d, ops, loggers, 2000000)
+
+    # Simulation for comparison
+    print("\nSimulating coalescent trees for comparison...")
+
+    outStream = open("sims.log", "w")
+    println(outStream, "Sample\ttree_height\ttree_length")
+    for i in 1:10000
+        tree = CoalescentTree(taxa, 1.0)
+        println(outStream, "$(i-1)\t$(tree.root.age)\t$(getTreeLength(tree))")
+    end
+    close(outStream)
+    println("done")
 end
 

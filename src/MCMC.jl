@@ -31,8 +31,8 @@ function restore(state::State)
     state.value, state.storedValue = state.storedValue, state.value
 end
 
-getLogName(state::State) = state.name
-getLogValue(state::State) = state.value
+getLogNames(state::State) = [state.name]
+getLogValues(state::State) = [state.value]
 
 include("Floats.jl")
 
