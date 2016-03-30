@@ -482,7 +482,7 @@ end
 # Testing
 
 function testCoalescent(;sim=true)
-    taxa = [string(i) => 0.0 for i = 1:100]
+    taxa = [string(i) => 0.0 for i = 1:1000]
 
     t = State("tree", CoalescentTree(taxa, 1.0))
     ops = [(TreeScaler(0.5, t), 1.0),
@@ -494,7 +494,7 @@ function testCoalescent(;sim=true)
 
     d = CoalescentDistribution(1.0, t)
 
-    loggers = [ScreenLogger([t], 100000),
+    loggers = [ScreenLogger([t], 10000),
                 FlatTextLogger("samples.log", [t], 100),
                 TreeLogger("trees.log", t, 1000)]
 
@@ -502,13 +502,19 @@ function testCoalescent(;sim=true)
 
     # Simulation for comparison
     if sim
-        print("\nSimulating coalescent trees for comparison...")
+        print("\nSimulating coalescent trees for comparison")
 
         outStream = open("sims.log", "w")
         println(outStream, "Sample\ttree_height\ttree_length")
-        for i in 1:10000
+        nSims = 1000
+        for i in 1:nSims
+            if i % (nSims/10) == 0
+                print(".")
+            end
+
             tree = CoalescentTree(taxa, 1.0)
             println(outStream, "$(i-1)\t$(tree.root.age)\t$(getTreeLength(tree))")
+            flush(outStream)
         end
         close(outStream)
         println("done")
