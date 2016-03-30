@@ -13,6 +13,7 @@
         <sequence taxon="t5" value="A"/>
         <sequence taxon="t6" value="A"/>
         <sequence taxon="t7" value="A"/>
+        <sequence taxon="t8" value="A"/>
         <sequence taxon="t9" value="A"/>
         <sequence taxon="t10" value="A"/>
         
@@ -23,6 +24,7 @@
         <sequence taxon="t15" value="A"/>
         <sequence taxon="t16" value="A"/>
         <sequence taxon="t17" value="A"/>
+        <sequence taxon="t18" value="A"/>
         <sequence taxon="t19" value="A"/>
         <sequence taxon="t20" value="A"/>
 
@@ -33,6 +35,7 @@
         <sequence taxon="t25" value="A"/>
         <sequence taxon="t26" value="A"/>
         <sequence taxon="t27" value="A"/>
+        <sequence taxon="t28" value="A"/>
         <sequence taxon="t29" value="A"/>
         <sequence taxon="t30" value="A"/>
 
@@ -44,6 +47,7 @@
         <sequence taxon="t35" value="A"/>
         <sequence taxon="t36" value="A"/>
         <sequence taxon="t37" value="A"/>
+        <sequence taxon="t38" value="A"/>
         <sequence taxon="t39" value="A"/>
         <sequence taxon="t40" value="A"/>
 
@@ -54,6 +58,7 @@
         <sequence taxon="t45" value="A"/>
         <sequence taxon="t46" value="A"/>
         <sequence taxon="t47" value="A"/>
+        <sequence taxon="t48" value="A"/>
         <sequence taxon="t49" value="A"/>
         <sequence taxon="t50" value="A"/>
 
@@ -64,6 +69,7 @@
         <sequence taxon="t55" value="A"/>
         <sequence taxon="t56" value="A"/>
         <sequence taxon="t57" value="A"/>
+        <sequence taxon="t58" value="A"/>
         <sequence taxon="t59" value="A"/>
         <sequence taxon="t60" value="A"/>
 
@@ -75,6 +81,7 @@
         <sequence taxon="t65" value="A"/>
         <sequence taxon="t66" value="A"/>
         <sequence taxon="t67" value="A"/>
+        <sequence taxon="t68" value="A"/>
         <sequence taxon="t69" value="A"/>
         <sequence taxon="t70" value="A"/>
 
@@ -86,6 +93,7 @@
         <sequence taxon="t75" value="A"/>
         <sequence taxon="t76" value="A"/>
         <sequence taxon="t77" value="A"/>
+        <sequence taxon="t78" value="A"/>
         <sequence taxon="t79" value="A"/>
         <sequence taxon="t80" value="A"/>
 
@@ -97,6 +105,7 @@
         <sequence taxon="t85" value="A"/>
         <sequence taxon="t86" value="A"/>
         <sequence taxon="t87" value="A"/>
+        <sequence taxon="t88" value="A"/>
         <sequence taxon="t89" value="A"/>
         <sequence taxon="t90" value="A"/>
 
@@ -108,6 +117,7 @@
         <sequence taxon="t95" value="A"/>
         <sequence taxon="t96" value="A"/>
         <sequence taxon="t97" value="A"/>
+        <sequence taxon="t98" value="A"/>
         <sequence taxon="t99" value="A"/>
         <sequence taxon="t100" value="A"/>
     </data>
@@ -119,10 +129,8 @@
         </populationModel>
     </input>
 
-    <input spec='beast.core.parameter.RealParameter' id="popSize">1.0</input>
 
-
-    <run spec="MCMC" id="mcmc" chainLength="1000000"> <!--autoOptimize="true"-->
+    <run spec="MCMC" id="mcmc" chainLength="1000000" autoOptimize="false">
         <state>
             <input name='stateNode' idref='tree'/>
         </state>
@@ -133,15 +141,15 @@
                      <tree idref="tree"/>
                 </treeIntervals>
                 <populationModel spec="ConstantPopulation" id='ConstantPopulation'>
-                    <parameter name="popSize" idref="popSize"/>
+                    <popSize spec="beast.core.parameter.RealParameter" value="1.0"/>
                 </populationModel>
             </distribution>
         </distribution>
 
-        <operator id='treeScaler' spec='ScaleOperator' scaleFactor="0.8" weight="1">
+        <operator id='treeScaler' spec='ScaleOperator' scaleFactor="0.5" weight="1">
             <tree idref="tree"/>
         </operator>
-        <operator id='treeScalerRoot' spec='ScaleOperator' scaleFactor="0.8" rootOnly="true" weight="1">
+        <operator id='treeScalerRoot' spec='ScaleOperator' scaleFactor="0.2" rootOnly="true" weight="1">
             <tree idref="tree"/>
         </operator>
         <operator spec='Uniform' weight="1">
@@ -158,16 +166,13 @@
         </operator>
 
         <logger logEvery="100" fileName="$(filebase).log">
-            <!--parameter idref="treeModel.rootHeight"/-->
             <log id="tree_height" spec="beast.evolution.tree.TreeHeightLogger" tree="@tree"/>
-            <log idref="popSize"/>
         </logger>
         <logger logEvery="1000" fileName="$(filebase).trees">
             <log idref="tree"/>
         </logger>
         <logger logEvery="100000">
             <log idref="tree_height"/>
-            <log idref="popSize"/>
         </logger>
     </run>
 
