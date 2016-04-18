@@ -421,6 +421,27 @@ function propose(op::SubtreeExchange)
     return 0.0
 end
 
+## Subtree slide move
+
+type SubtreeSlide{T<:TimeTree} <: Operator
+    size::Float64
+    treeState::State{T}
+end
+getDeps(op::SubtreeSlide) = [op.treeState]
+
+function propose(op::SubtreeSlide)
+    tree = op.treeState.value
+    nodes = getNodes(tree)
+
+    node = rand(nodes)
+    while isRoot(node)
+        node = rand(nodes)
+    end
+
+    delta = randn()*op.size
+    
+end
+
 # Loggers
 
 ## Summary statistics
