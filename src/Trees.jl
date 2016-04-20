@@ -438,7 +438,7 @@ function getDescendents(node::Node, time::Float64)
         ancestorsPrime = Array{Node,1}()
         for a in ancestors
             for c in a.children
-                if c.age < time
+                if c.age <=time
                     push!(descendents, c)
                 else
                     push!(ancestorsPrime, c)
@@ -493,7 +493,7 @@ function propose(op::SubtreeSlide)
         end
 
     else
-        if parent.age < node.age
+        if parent.age + delta < node.age
             return -Inf
         end
 
@@ -594,6 +594,7 @@ function testCoalescent(;sim=true)
         (TreeRootScaler(0.2, t), 1.0),
         (TreeUniform(t), 1.0),
         (TreeWilsonBalding(0.1, t), 1.0),
+        (SubtreeSlide(0.1, t), 1.0),
         (SubtreeExchangeNarrow(0.1, t), 1.0),
         (SubtreeExchangeWide(0.1, t), 1.0)]
 
@@ -611,7 +612,7 @@ function testCoalescent(;sim=true)
 
         outStream = open("sims.log", "w")
         println(outStream, "Sample\ttree_height\ttree_length")
-        nSims = 1000
+        nSims = 10000
         for i in 1:nSims
             if i % (nSims/10) == 0
                 print(".")

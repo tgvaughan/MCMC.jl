@@ -63,13 +63,19 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
     oldLogDensity = getLogDensity(d)
     weightVec = WeightVec(map(x->x[2], weightedOperators))
     opVec = map(x->x[1], weightedOperators)
+    
+    opAcceptFreq = zeros(Int64, length(opVec))
+    opChoiceFreq = zeros(Int64, length(opVec))
 
     for iter in 1:nIters
 
-       # Propose new state
-       op = sample(opVec, weightVec)
+       # Choose operator
+       opIdx = sample(1:length(opVec), weightVec)
+       op = opVec[opIdx]
+       opChoiceFreq[opIdx] += 1
        store(getDeps(op))
 
+       # Propose new state
        HF = propose(op)
 
        if HF > -Inf
@@ -82,6 +88,7 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
            # Determine fate of proposal
            if alpha > 1 || rand()<alpha
                oldLogDensity = newLogDensity
+               opAcceptFreq[opIdx] += 1
            else
                restore(getDeps(op))
            end
@@ -98,6 +105,14 @@ function run{O<:Operator,L<:Logger}(d::TargetDistribution,
     # Finalize loggers
     for logger in loggers
         close(logger)
+    end
+
+    # Print operator summary
+    println("\nOperator usage statistics")
+    println("-------------------------")
+    println("Operator Type\tSelected\tAccepted\tFraction")
+    for i in 1:length(opVec)
+        println(typeof(opVec[i]), "\t", opChoiceFreq[i], "\t", opAcceptFreq[i], "\t", opAcceptFreq[i]/opChoiceFreq[i])
     end
 end
 

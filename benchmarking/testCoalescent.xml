@@ -1017,6 +1017,8 @@
 
 
     <run spec="MCMC" id="mcmc" chainLength="1000000">
+        <operatorschedule spec="OperatorSchedule" autoOptimize="false"/>
+
         <state>
             <input name='stateNode' idref='tree'/>
         </state>
@@ -1039,6 +1041,9 @@
             <tree idref="tree"/>
         </operator>
         <operator spec='Uniform' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator spec='SubtreeSlide' gaussian="true" size="0.1" weight="1">
             <tree idref="tree"/>
         </operator>
         <operator id='narrow' spec='Exchange' isNarrow='true' weight="1">
