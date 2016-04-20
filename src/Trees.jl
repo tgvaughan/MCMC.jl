@@ -429,7 +429,32 @@ type SubtreeSlide{T<:TimeTree} <: Operator
 end
 getDeps(op::SubtreeSlide) = [op.treeState]
 
+function getDescendents(node::Node, time::Float64)
+    ancestors = [node]
+    descendents = Array{Node,1}()
+
+    done = false
+    while !isempty(ancestors)
+        ancestorsPrime = Array{Node,1}()
+        for a in ancestors
+            for c in a.children
+                if c.age < time
+                    push!(descendents, c)
+                else
+                    push!(ancestorsPrime, c)
+                end
+            end
+        end
+
+        ancestors = ancestorsPrime
+    end
+
+    return descendents
+end
+
 function propose(op::SubtreeSlide)
+    logHR = 0.0
+
     tree = op.treeState.value
     nodes = getNodes(tree)
 
@@ -437,9 +462,68 @@ function propose(op::SubtreeSlide)
     while isRoot(node)
         node = rand(nodes)
     end
+    parent = node.parent
 
     delta = randn()*op.size
-    
+
+    if delta > 0
+        if !isRoot(parent) && parent.age + delta > parent.parent.age
+            # Topology change
+
+            sister = getSibling(node)
+            grandParent = parent.parent
+
+            destEdge = grandParent
+            while !isRoot(destEdge) && destEdge.parent.age < parent.age + delta
+                destEdge = destEdge.parent
+            end
+
+            # Identify number of descendents of destEdge at age of parent for HR
+            logHR = -log(length(getDescendents(destEdge, parent.age)))
+
+            if !isRoot(destEdge)
+                destEdgeParent = destEdge.parent
+                replaceChild(destEdgeParent, destEdge, parent)
+            else
+                tree.root = parent
+                parent.parent = parent
+            end
+            replaceChild(parent, sister, destEdge)
+            replaceChild(grandParent, parent, sister)
+        end
+
+    else
+        if parent.age < node.age
+            return -Inf
+        end
+
+        sister = getSibling(node)
+        if parent.age + delta < sister.age
+            # Topology change
+
+            # Identify potential destination edges
+            potentials = getDescendents(sister, parent.age + delta)
+
+            logHR = log(length(potentials))
+
+            destEdge = rand(potentials)
+            destEdgeParent = destEdge.parent
+
+            if !isRoot(parent)
+                grandParent = parent.parent
+                replaceChild(grandParent, parent, sister)
+            else
+                tree.root = sister
+                sister.parent = sister
+            end
+            replaceChild(destEdgeParent, destEdge, parent)
+            replaceChild(parent, sister, destEdge)
+        end
+    end
+
+    parent.age += delta
+
+    return logHR
 end
 
 # Loggers
