@@ -8,13 +8,19 @@ import StatsBase.sample, StatsBase.WeightVec
 
 type UnimplementedMethodException <: Exception end
 
+# Abstract probability distribution type
+
 abstract TargetDistribution
 function getLogDensity(d::TargetDistribution) end
 getDeps(d::TargetDistribution) = throw(UnimplementedMethodException())
 
+# Abstract proposal operator type
+
 abstract Operator
 getDeps(op::Operator) = throw(UnimplementedMethodException())
 function propose(op::Operator) end
+
+# Parameterized state type with default store/restore
 
 type State{T}
     name
@@ -35,7 +41,7 @@ end
 getLogNames(state::State) = [state.name]
 getLogValues(state::State) = [state.value]
 
-include("Floats.jl")
+# Abstract logger type
 
 abstract Logger
 function init(logger::Logger) end
@@ -44,10 +50,10 @@ function close(logger::Logger) end
 summary(logger::Logger) = print("This logger does not provide a summary.")
 trace(logger::Logger) = print("This logger does not provide a trace.")
 
+include("Floats.jl")
 include("Loggers.jl")
 
-
-include("Trees.jl")
+include("phylogenetics/Phylogenetics.jl")
 
 """
 Run MCMC chain.
