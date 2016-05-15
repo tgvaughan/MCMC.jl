@@ -199,12 +199,13 @@ function getLogDensity(d::TreeLikelihood)
                                 length(alignment.variablePatterns),
                                 nStates, nStates)
     
-    function getPartial(nodeNr::Int, pIdx::Int, characterState::Int)
-        if isLeaf(nodes[nodeNr])
-            return characterState == alignment.patterns[pIdx, nodeNr] ? 1.0 : 0.0
+    function getPartial(node::Node, pIdx::Int, characterState::Int)
+        if isLeaf(node)
+            return characterState == alignment.patterns[pIdx, node.number] ? 1.0 : 0.0
         else
             for c in 1:nStates
-
+                for child in node.children
+                end
             end
         end
     end
