@@ -1,4 +1,4 @@
-## Sequence alignment I/O
+# Sequence alignment I/O
 
 abstract SequenceDataType
 getNStates(dt::SequenceDataType) = throw(UnimplementedMethodException())
@@ -177,10 +177,27 @@ function readFasta(filename; datatype::SequenceDataType = DNA())
     return Alignment(sequences, datatype=datatype)
 end
 
-## Likelihood
+# Likelihood
+
+## Substitution models
+
+abstract SubstitutionModel{D}
+updateTransitionMatrix(model::SubstitutionModel, matrix::Array{Float64,2}, dist::Float64) =
+    throw(UnimplementedMethodException())
+
+type JukesCantor <: SubstitutionModel{DNA} end
+function updateTransitionMatrix(jc::JukesCantor, matrix::Array{Float64,2}, dist::Float64)
+    for i in 1:4
+        for j in 1:i
+
+        end
+    end
+end
+
 
 type TreeLikelihood <: TargetDistribution
     alignment::Alignment
+    clockRate::Float64
     treeState::State{TimeTree}
 end
 getDeps(d::TreeLikelihood) = [d.treeState]
