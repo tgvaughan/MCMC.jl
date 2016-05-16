@@ -187,10 +187,12 @@ updateTransitionMatrix(model::SubstitutionModel, matrix::Array{Float64,2}, dist:
 
 type JukesCantor <: SubstitutionModel{DNA} end
 function updateTransitionMatrix(jc::JukesCantor, matrix::Array{Float64,2}, dist::Float64)
-    for i in 1:4
-        for j in 1:i
+    pStay = (1 + 3*exp(-4/3*dist))/4
+    pDiff = 1 - pStay
 
-        end
+    fill!(matrix, pDiff)
+    for i in 1:4
+        matrix[i,i] = pStay
     end
 end
 
