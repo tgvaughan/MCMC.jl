@@ -187,19 +187,19 @@ updateTransitionMatrix(model::SubstitutionModel, matrix::Array{Float64,2}, dist:
 
 type JukesCantor <: SubstitutionModel{DNA} end
 function updateTransitionMatrix(jc::JukesCantor, matrix::Array{Float64,2}, dist::Float64)
-    pStay = (1 + 3*exp(-4/3*dist))/4
+    pSame = (1 + 3*exp(-4/3*dist))/4
     pDiff = 1 - pStay
 
     fill!(matrix, pDiff)
     for i in 1:4
-        matrix[i,i] = pStay
+        matrix[i,i] = pSame
     end
 end
-
 
 type TreeLikelihood <: TargetDistribution
     alignment::Alignment
     clockRate::Float64
+    substModel::SubstitutionModel
     treeState::State{TimeTree}
 end
 getDeps(d::TreeLikelihood) = [d.treeState]
@@ -208,22 +208,60 @@ function getLogDensity(d::TreeLikelihood)
 
     tree = d.treeState.value
     alignment = d.alignment
+    substModel = d.substModel
 
-    internalNodes = getInternalNodes(tree)
-    nInternalNodes = length(internalNodes)
+    nodes = getNodes(tree)
+    nNodes = length(nodes)
 
     nStates = getStateCount(alignment.datatype)
 
-    partials = Array{Float64,4}(nInternalNodes,
-                                length(alignment.variablePatterns),
-                                nStates, nStates)
+    partials = Array{Float64,4}(length(alignment.variablePatterns),
+                                nNodes,
+                                nStates)
+    partialsDirty = Array{Bool,1}(nNodes)
+    fill!(partialsDirty, true)
+
+    transProbs = Array{Float64,3}(nNodes-1, nStates, nStates)
+    transProbsDirty = Array{Bool,1}(nNodes-1)
+    fill!(transProbsDirty, true)
     
-    function getPartial(node::Node, pIdx::Int, characterState::Int)
+    function computePartials(nodeNr, pIdx::Int, characterState::Int)
+
+        if !partialsDirty[nodeNr]
+            return partials[pIdx, nodeNr, characterState]
+        end
+
+        node = nodes[nodeNr]
+        left = node.children[1]
+        leftNr = left.number
+        rightNr = right.number
+
+        if transProbsDirty[leftNr]
+            updateTransitionMatrix(substModel, sub(transProbs, leftNr,:,:), (node.age-left.age)/clockRate)
+        end
+
+        if transProbsDirty[rightNr]
+            updateTransitionMatrix(substModel, sub(transProbs, rightNr,:,:), (node.age-right.age)/clockRate)
+        end
+
+
+        if isLeaf(node.children[1]) && isLeaf(node.children[2])
+                
+        elseif isLeaf(node.children[1])
+
+        elseif isLeaf(node.children[2])
+
+        else
+
+        end
+
         if isLeaf(node)
             return characterState == alignment.patterns[pIdx, node.number] ? 1.0 : 0.0
         else
             for c in 1:nStates
-                for child in node.children
+                for cp in 1:nStates
+                    for child in node.children
+                    end
                 end
             end
         end
