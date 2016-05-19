@@ -1,0 +1,69 @@
+<beast version='2.0'
+       namespace='beast.core:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.evolution.likelihood'>
+
+
+    <!-- The sequence alignment (each sequence refers to a taxon above).         -->
+    <!-- ntax=6 nchar=768                                                        -->
+    <!-- npatterns=69                                                            -->
+    <data id="alignment" dataType="nucleotide">
+        <sequence taxon='A' value='GTCA'/>
+        <sequence taxon='B' value='GCCA'/>
+        <sequence taxon='C' value='GTCA'/>
+    </data>
+
+    <input spec='beast.util.TreeParser' id='tree' newick="((A:1,B:1):0.5,C:1.5):0.0;">
+        <input name='taxa' idref='alignment'/>
+    </input>
+
+
+    <run spec="MCMC" id="mcmc" chainLength="1">
+        <operatorschedule spec="OperatorSchedule" autoOptimize="false"/>
+
+        <state>
+            <input name='stateNode' idref='tree'/>
+        </state>
+
+        <distribution spec="CompoundDistribution" id="posterior">
+            <distribution spec="TreeLikelihood" id="likelihood">
+                <data idref="alignment"/>
+                <tree idref="tree"/>
+                <siteModel spec="SiteModel">
+                    <substModel spec="JukesCantor"/>
+                </siteModel>
+            </distribution>
+        </distribution>
+
+        <operator id='treeScaler' spec='ScaleOperator' scaleFactor="0.5" weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator id='treeScalerRoot' spec='ScaleOperator' scaleFactor="0.2" rootOnly="true" weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator spec='Uniform' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator spec='SubtreeSlide' gaussian="true" size="0.1" weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator id='narrow' spec='Exchange' isNarrow='true' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator id='wide' spec='Exchange' isNarrow='false' weight="1">
+            <tree idref="tree"/>
+        </operator>
+        <operator spec='WilsonBalding' weight="1">
+            <tree idref="tree"/>
+        </operator>
+
+        <logger logEvery="100" fileName="$(filebase).log">
+            <log id="tree_height" spec="beast.evolution.tree.TreeHeightLogger" tree="@tree"/>
+        </logger>
+        <logger logEvery="1000" fileName="$(filebase).trees">
+            <log idref="tree"/>
+        </logger>
+        <logger logEvery="10000">
+            <log idref="tree_height"/>
+        </logger>
+    </run>
+
+</beast>
