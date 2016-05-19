@@ -1,11 +1,11 @@
 # Sequence alignment I/O
 
 abstract SequenceDataType
-getNStates(dt::SequenceDataType) = throw(UnimplementedMethodException())
+getStateCount(dt::SequenceDataType) = throw(UnimplementedMethodException())
 stateFromChar(dt::SequenceDataType, c::Char) = throw(InimplementedMethodException())
 
 type DNA <: SequenceDataType end
-getNStates(dt::DNA) = 4
+getStateCount(dt::DNA) = 4
 stateFromChar(dt::DNA, c::Char) = Dict( 'A' => 1,
                                         'C' => 2,
                                         'G' => 3,
@@ -61,14 +61,15 @@ function Alignment(sequences::Dict{ASCIIString, ASCIIString}; datatype::Sequence
 
     # Collect site patterns
 
-    patterns = Array{Array{Int,1},1}(nSites)
+    patterns = Vector{Vector{Int}}(nSites)
     for s in 1:nSites
-        pattern = Array{Int,1}(nTaxa)
+        pattern = Vector{Int}(nTaxa)
         for t in 1:nTaxa
             pattern[t] = mappedSeqs[taxa[t]][s]
         end
         patterns[s] = pattern
     end
+
 
     # Find unique patterns and counts
 
@@ -86,7 +87,7 @@ function Alignment(sequences::Dict{ASCIIString, ASCIIString}; datatype::Sequence
     uniquePat = Array{Array{Int,1},1}()
     patternWeights = Array{Int,1}()
 
-    push!(uniquePat, patterns[1])
+    push!(uniquePat, sortedPat[1])
     push!(patternWeights, 1)
 
     function patternEq(a::Array{Int,1}, b::Array{Int,1})
@@ -116,6 +117,7 @@ function Alignment(sequences::Dict{ASCIIString, ASCIIString}; datatype::Sequence
     end
 
     # Record indices of constant and variable patterns
+
     variablePatterns = Array{Int,1}()
     constantPatterns = Array{Int,1}()
     ambiguousPatterns = Set{Int}()
@@ -172,6 +174,10 @@ function readFasta(filename; datatype::SequenceDataType = DNA())
         end
     end
 
+    if seq != nothing
+        sequences[header] = seq
+    end
+
     close(f)
 
     return Alignment(sequences, datatype=datatype)
@@ -188,7 +194,7 @@ updateTransitionMatrix(model::SubstitutionModel, matrix::Array{Float64,2}, dist:
 type JukesCantor <: SubstitutionModel{DNA} end
 function updateTransitionMatrix(jc::JukesCantor, matrix::Array{Float64,2}, dist::Float64)
     pSame = (1 + 3*exp(-4/3*dist))/4
-    pDiff = 1 - pStay
+    pDiff = 1 - pSame
 
     fill!(matrix, pDiff)
     for i in 1:4
@@ -215,58 +221,104 @@ function getLogDensity(d::TreeLikelihood)
 
     nStates = getStateCount(alignment.datatype)
 
-    partials = Array{Float64,4}(length(alignment.variablePatterns),
-                                nNodes,
-                                nStates)
-    partialsDirty = Array{Bool,1}(nNodes)
+    partials = Array{Vector{Float64}}(nNodes,
+                                getPatternCount(alignment))
+    for n in 1:nNodes
+        for pIdx in 1:getPatternCount(alignment)
+            partials[n,pIdx] = zeros(nStates)
+        end
+    end
+    partialsDirty = Vector{Bool}(nNodes)
     fill!(partialsDirty, true)
 
-    transProbs = Array{Float64,3}(nNodes-1, nStates, nStates)
-    transProbsDirty = Array{Bool,1}(nNodes-1)
+    transProbs = Vector{Matrix{Float64}}(nNodes)
+    for n in 1:(nNodes)
+        transProbs[n] = zeros(nStates,nStates)
+    end
+    transProbsDirty = Vector{Bool}(nNodes)
     fill!(transProbsDirty, true)
     
-    function computePartials(nodeNr, pIdx::Int, characterState::Int)
+    function computePartials(nodeNr)
 
         if !partialsDirty[nodeNr]
-            return partials[pIdx, nodeNr, characterState]
+            return 
         end
 
         node = nodes[nodeNr]
+
         left = node.children[1]
         leftNr = left.number
+
+        right = node.children[2]
         rightNr = right.number
 
         if transProbsDirty[leftNr]
-            updateTransitionMatrix(substModel, sub(transProbs, leftNr,:,:), (node.age-left.age)/clockRate)
+            updateTransitionMatrix(substModel, transProbs[leftNr], (node.age-left.age)/d.clockRate)
+            transProbsDirty[leftNr] = false
         end
 
         if transProbsDirty[rightNr]
-            updateTransitionMatrix(substModel, sub(transProbs, rightNr,:,:), (node.age-right.age)/clockRate)
+            updateTransitionMatrix(substModel, transProbs[rightNr], (node.age-right.age)/d.clockRate)
+            transProbsDirty[rightNr] = false
         end
 
+        if isLeaf(left) && isLeaf(right)
+            for pIdx in alignment.variablePatterns
+                partials[nodeNr, pIdx] =
+                    transProbs[leftNr][:,alignment.patterns[leftNr, pIdx]] .*
+                    transProbs[rightNr][:,alignment.patterns[pIdx,rightNr]]
+            end
+        elseif isLeaf(left)
+            computePartials(rightNr)
 
-        if isLeaf(node.children[1]) && isLeaf(node.children[2])
-                
-        elseif isLeaf(node.children[1])
+            for pIdx in alignment.variablePatterns
+                partials[pIdx, nodeNr] =
+                    transProbs[leftNr][:,alignment.patterns[leftNr, pIdx]] .*
+                    (transProbs[rightNr]*partials[pIdx, rightNr])
+            end
 
-        elseif isLeaf(node.children[2])
+        elseif isLeaf(right)
+            computePartials(leftNr)
 
+            for pIdx in alignment.variablePatterns
+                partials[pIdx, nodeNr] =
+                    (transProbs[leftNr]*partials[leftNr, pIdx]) .*
+                    transProbs[rightNr][:,alignment.patterns[pIdx,rightNr]]
+            end
         else
+            computePartials(leftNr)
+            computePartials(rightNr)
 
-        end
-
-        if isLeaf(node)
-            return characterState == alignment.patterns[pIdx, node.number] ? 1.0 : 0.0
-        else
-            for c in 1:nStates
-                for cp in 1:nStates
-                    for child in node.children
-                    end
-                end
+            for pIdx in alignment.variablePatterns
+                partials[pIdx, nodeNr] =
+                    (transProbs[leftNr]*partials[leftNr, pIdx]) .*
+                    (transProbs[rightNr]*partials[pIdx, rightNr])
             end
         end
     end
-    for p in alignment.variablePatterns
 
-    end
+    computePartials(tree.root.number)
+
+    print(partials)
+end
+
+# Testing
+
+function testLikelihood()
+    t = State("tree", TimeTree("((A:1,B:1):0.5,C:1.5):0.0;"))
+
+    of = open("align.fna", "w")
+    println(of, ">A")
+    println(of, "GTCA")
+    println(of, ">B")
+    println(of, "GCCA")
+    println(of, ">C")
+    println(of, "GTCA")
+    close(of)
+
+    msa = readFasta("align.fna")
+
+    likelihood = TreeLikelihood(msa, 1.0, JukesCantor(), t)
+
+    getLogDensity(likelihood)
 end
